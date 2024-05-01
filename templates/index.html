@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Classifier</title>
+</head>
+<body>
+    <h1>Food Classifier</h1>
+
+    <!-- Image Upload Form -->
+    <h2>Upload Image</h2>
+    <form action="/predict/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
+        <input type="submit" value="Upload">
+    </form>
+
+    <!-- Camera Capture -->
+    <h2>Capture from Camera</h2>
+    <div>
+        <video id="video" width="640" height="480" autoplay></video>
+        <button id="captureButton">Capture</button>
+    </div>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureButton = document.getElementById('captureButton');
+        const constraints = {
+            video: true
+        };
+
+        // Access the webcam stream
+        async function init() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+            } catch (err) {
+                console.error('Error accessing webcam:', err);
+            }
+        }
+        init();
+
+        // Capture image from webcam
+        captureButton.addEventListener('click', () => {
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                const formData = new FormData();
+                formData.append('image', blob, 'webcam.jpg');
+
+                // Send image to server for prediction
+                fetch('/predict/camera', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(prediction => {
+                    alert('Prediction: ' + prediction);
+                })
+                .catch(error => {
+                    console.error('Error predicting:', error);
+                });
+            }, 'image/jpeg');
+        });
+    </script>
+</body>
+</html>
