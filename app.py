@@ -1,16 +1,10 @@
-from flask import Flask, render_template, request
-import os
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
+import matplotlib.pyplot as plt
 import numpy as np
 import requests
-import cv2
-from io import BytesIO
-from PIL import Image
 
-app = Flask(__name__)
-
-# Load the trained model
+# Loading the model
 my_model = tf.keras.models.load_model('model_trained.h5', compile=False)
 
 # List of food categories
@@ -33,6 +27,7 @@ food_list = [
     "tuna_tartare", "waffles"
 ]
 
+
 # Function to get calorie information from Edamam API
 def get_calories(food_name):
     # Replace 'YOUR_APP_ID' and 'YOUR_APP_KEY' with your actual Edamam API credentials
@@ -51,54 +46,35 @@ def get_calories(food_name):
     else:
         return None
 
-# Function to predict classes of new images
-def predict_class(img):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = Image.fromarray(img)
-    img = img.resize((224, 224))
-    img_array = np.array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = img_array / 255.
 
-    pred = my_model.predict(img_array)
+# Function to predict classes of new images
+def predict_class(model, img_path):
+    img = image.load_img(img_path, target_size=(224, 224))
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array /= 255.
+
+    pred = model.predict(img_array)
     pred_index = np.argmax(pred)
     food_name = food_list[pred_index]
     calories = get_calories(food_name)
 
     return food_name, calories
 
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-@app.route('/predict/upload', methods=['POST'])
-def predict_upload():
-    # Check if a file was uploaded
-    if 'image' not in request.files:
-        return "No file uploaded", 400
+# Add the images you want to predict into a list
+images = ['food-101/food-101/images/pizza/129666.jpg',
+          'food-101/food-101/images/spring_rolls/7847.jpg',
+          'Instant-Pot-Chicken-Curry.jpg']
 
-    file = request.files['image']
-
-    # Check if the file is empty
-    if file.filename == '':
-        return "Empty file uploaded", 400
-
-    # Check if the file is an allowed format
-    if file:
-        filename = 'uploaded_image.jpg'
-        file_path = os.path.join('uploads', filename)
-        file.save(file_path)
-        img = cv2.imread(file_path)
-        food_name, calories = predict_class(img)
-        return f"{food_name}, Calories: {calories}"
-
-@app.route('/predict/camera', methods=['POST'])
-def predict_camera():
-    img = request.files['image'].read()
-    img = Image.open(BytesIO(img))
-    img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    food_name, calories = predict_class(img)
-    return f"{food_name}, Calories: {calories}"
-
-if __name__ == '__main__':
-    app.run(debug=True)
+print("PREDICTIONS BASED ON PICTURES UPLOADED")
+for img_path in images:
+    try:
+        food_name, calories = predict_class(my_model, img_path)
+        img = image.load_img(img_path)
+        plt.imshow(img)
+        plt.axis('off')
+        plt.title(f"{food_name}, Calories: {calories}")
+        plt.show()
+    except Exception as e:
+        print(f"Error processing {img_path}: {e}")
